@@ -1233,19 +1233,22 @@ if OS == 'Windows' then
 else
     ffi.cdef('ssize_t readlink(const char *path, char *buf, size_t bufsize);')
     function get_link_target_path(link_path)
-        local size = MAXPATH
-        while true do
-            local buf = ffi.new('char[?]', size)
-            local read = lib.readlink(link_path, buf, size)
-            if read == -1 then
-                error(errno(),2)
-                return nil, errno()
-            end
-            if read < size then
-                return ffi_str(buf)
-            end
-            size = size * 2
+        local statbuf = ffi.new(stat_type)
+        if lstat_func(link_path. statbuf) == -1 then
+            error(errno(),2)
         end
+        local size = statbuf.st_size
+        local buf = ffi.new('char[?]', size + 1)
+        local read = lib.readlink(link_path, buf, size)
+        if read == -1 then
+            error(errno(),2)
+            return nil, errno()
+        end
+        if read > size then
+            error("not enought size for readlink "..errno(),2)
+        end
+        buf[size] = 0
+        return ffi_str(buf)
     end
 end
 
